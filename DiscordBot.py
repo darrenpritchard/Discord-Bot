@@ -1,9 +1,9 @@
 # Made By Darren P.
 
-+import discord
+import discord
 import random
 import datetime
-from discord.ext import commands
+from discord.ext import Bot
 from random import seed
 from random import randint
 
@@ -15,18 +15,17 @@ import functools
 import itertools
 import math
 
-import discord
 import youtube_dl
 from async_timeout import timeout
 
 """Requirements:
 Python 3.5+
 pip install -U discord.py pynacl youtube-dl
-You also need FFmpeg in your PATH environment variable or the FFmpeg.exe binary in your bot's directory on Windows."""
+You also need FFmpeg in your PATH environment variable or the FFmpeg.exe binary in your Bot's directory on Windows."""
 
-token = 'placeholder' #set this to whatever your token for your bot is
+token = 'placeholder' #set this to whatever your token for your Bot is
 
-bot = commands.Bot(command_prefix='!', description="")
+Bot = Bot.Bot(command_prefix='!', description="")
 
 seed(datetime.datetime.now())
 
@@ -66,7 +65,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
     ytdl = youtube_dl.YoutubeDL(YTDL_OPTIONS)
 
-    def __init__(self, ctx: commands.Context, source: discord.FFmpegPCMAudio, *, data: dict, volume: float = 0.5):
+    def __init__(self, ctx: Bot.Context, source: discord.FFmpegPCMAudio, *, data: dict, volume: float = 0.5):
         super().__init__(source, volume)
 
         self.requester = ctx.author
@@ -92,7 +91,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         return '**{0.title}** by **{0.uploader}**'.format(self)
 
     @classmethod
-    async def create_source(cls, ctx: commands.Context, search: str, *, loop: asyncio.BaseEventLoop = None):
+    async def create_source(cls, ctx: Bot.Context, search: str, *, loop: asyncio.BaseEventLoop = None):
         loop = loop or asyncio.get_event_loop()
 
         partial = functools.partial(cls.ytdl.extract_info, search, download=False, process=False)
@@ -195,8 +194,8 @@ class SongQueue(asyncio.Queue):
 
 
 class VoiceState:
-    def __init__(self, bot: commands.Bot, ctx: commands.Context):
-        self.bot = bot
+    def __init__(self, Bot: Bot.Bot, ctx: Bot.Context):
+        self.Bot = Bot
         self._ctx = ctx
 
         self.current = None
@@ -208,7 +207,7 @@ class VoiceState:
         self._volume = 0.5
         self.skip_votes = set()
 
-        self.audio_player = bot.loop.create_task(self.audio_player_task())
+        self.audio_player = Bot.loop.create_task(self.audio_player_task())
 
     def __del__(self):
         self.audio_player.cancel()
@@ -246,7 +245,7 @@ class VoiceState:
                     async with timeout(180):  # 3 minutes
                         self.current = await self.songs.get()
                 except asyncio.TimeoutError:
-                    self.bot.loop.create_task(self.stop())
+                    self.Bot.loop.create_task(self.stop())
                     return
 
             self.current.source.volume = self._volume
@@ -275,37 +274,37 @@ class VoiceState:
             self.voice = None
 
 
-class Music(commands.Cog):
-    def __init__(self, bot: commands.Bot):
-        self.bot = bot
+class Music(Bot.Cog):
+    def __init__(self, Bot: Bot.Bot):
+        self.Bot = Bot
         self.voice_states = {}
 
-    def get_voice_state(self, ctx: commands.Context):
+    def get_voice_state(self, ctx: Bot.Context):
         state = self.voice_states.get(ctx.guild.id)
         if not state:
-            state = VoiceState(self.bot, ctx)
+            state = VoiceState(self.Bot, ctx)
             self.voice_states[ctx.guild.id] = state
 
         return state
 
     def cog_unload(self):
         for state in self.voice_states.values():
-            self.bot.loop.create_task(state.stop())
+            self.Bot.loop.create_task(state.stop())
 
-    def cog_check(self, ctx: commands.Context):
+    def cog_check(self, ctx: Bot.Context):
         if not ctx.guild:
-            raise commands.NoPrivateMessage('This command can\'t be used in DM channels.')
+            raise Bot.NoPrivateMessage('This command can\'t be used in DM channels.')
 
         return True
 
-    async def cog_before_invoke(self, ctx: commands.Context):
+    async def cog_before_invoke(self, ctx: Bot.Context):
         ctx.voice_state = self.get_voice_state(ctx)
 
-    async def cog_command_error(self, ctx: commands.Context, error: commands.CommandError):
+    async def cog_command_error(self, ctx: Bot.Context, error: Bot.CommandError):
         await ctx.send('An error occurred: {}'.format(str(error)))
 
-    @commands.command(name='join', invoke_without_subcommand=True)
-    async def _join(self, ctx: commands.Context):
+    @Bot.command(name='join', invoke_without_subcommand=True)
+    async def _join(self, ctx: Bot.Context):
         """Joins a voice channel."""
 
         destination = ctx.author.voice.channel
@@ -315,10 +314,10 @@ class Music(commands.Cog):
 
         ctx.voice_state.voice = await destination.connect()
 
-    @commands.command(name='summon')
-    @commands.has_permissions(manage_guild=True)
-    async def _summon(self, ctx: commands.Context, *, channel: discord.VoiceChannel = None):
-        """Summons the bot to a voice channel.
+    @Bot.command(name='summon')
+    @Bot.has_permissions(manage_guild=True)
+    async def _summon(self, ctx: Bot.Context, *, channel: discord.VoiceChannel = None):
+        """Summons the Bot to a voice channel.
         If no channel was specified, it joins your channel.
         """
 
@@ -332,9 +331,9 @@ class Music(commands.Cog):
 
         ctx.voice_state.voice = await destination.connect()
 
-    @commands.command(name='leave', aliases=['disconnect'])
-    @commands.has_permissions(manage_guild=True)
-    async def _leave(self, ctx: commands.Context):
+    @Bot.command(name='leave', aliases=['disconnect'])
+    @Bot.has_permissions(manage_guild=True)
+    async def _leave(self, ctx: Bot.Context):
         """Clears the queue and leaves the voice channel."""
 
         if not ctx.voice_state.voice:
@@ -343,8 +342,8 @@ class Music(commands.Cog):
         await ctx.voice_state.stop()
         del self.voice_states[ctx.guild.id]
 
-    @commands.command(name='volume')
-    async def _volume(self, ctx: commands.Context, *, volume: int):
+    @Bot.command(name='volume')
+    async def _volume(self, ctx: Bot.Context, *, volume: int):
         """Sets the volume of the player."""
 
         if not ctx.voice_state.is_playing:
@@ -356,33 +355,33 @@ class Music(commands.Cog):
         ctx.voice_state.volume = volume / 100
         await ctx.send('Volume of the player set to {}%'.format(volume))
 
-    @commands.command(name='now', aliases=['current', 'playing'])
-    async def _now(self, ctx: commands.Context):
+    @Bot.command(name='now', aliases=['current', 'playing'])
+    async def _now(self, ctx: Bot.Context):
         """Displays the currently playing song."""
 
         await ctx.send(embed=ctx.voice_state.current.create_embed())
 
-    @commands.command(name='pause')
-    @commands.has_permissions(manage_guild=True)
-    async def _pause(self, ctx: commands.Context):
+    @Bot.command(name='pause')
+    @Bot.has_permissions(manage_guild=True)
+    async def _pause(self, ctx: Bot.Context):
         """Pauses the currently playing song."""
 
         if not ctx.voice_state.is_playing and ctx.voice_state.voice.is_playing():
             ctx.voice_state.voice.pause()
             await ctx.message.add_reaction('⏯')
 
-    @commands.command(name='resume')
-    @commands.has_permissions(manage_guild=True)
-    async def _resume(self, ctx: commands.Context):
+    @Bot.command(name='resume')
+    @Bot.has_permissions(manage_guild=True)
+    async def _resume(self, ctx: Bot.Context):
         """Resumes a currently paused song."""
 
         if not ctx.voice_state.is_playing and ctx.voice_state.voice.is_paused():
             ctx.voice_state.voice.resume()
             await ctx.message.add_reaction('⏯')
 
-    @commands.command(name='stop')
-    @commands.has_permissions(manage_guild=True)
-    async def _stop(self, ctx: commands.Context):
+    @Bot.command(name='stop')
+    @Bot.has_permissions(manage_guild=True)
+    async def _stop(self, ctx: Bot.Context):
         """Stops playing song and clears the queue."""
 
         ctx.voice_state.songs.clear()
@@ -391,8 +390,8 @@ class Music(commands.Cog):
             ctx.voice_state.voice.stop()
             await ctx.message.add_reaction('⏹')
 
-    @commands.command(name='skip')
-    async def _skip(self, ctx: commands.Context):
+    @Bot.command(name='skip')
+    async def _skip(self, ctx: Bot.Context):
         """Vote to skip a song. The requester can automatically skip.
         3 skip votes are needed for the song to be skipped.
         """
@@ -418,8 +417,8 @@ class Music(commands.Cog):
         else:
             await ctx.send('You have already voted to skip this song.')
 
-    @commands.command(name='queue')
-    async def _queue(self, ctx: commands.Context, *, page: int = 1):
+    @Bot.command(name='queue')
+    async def _queue(self, ctx: Bot.Context, *, page: int = 1):
         """Shows the player's queue.
         You can optionally specify the page to show. Each page contains 10 elements.
         """
@@ -441,8 +440,8 @@ class Music(commands.Cog):
                  .set_footer(text='Viewing page {}/{}'.format(page, pages)))
         await ctx.send(embed=embed)
 
-    @commands.command(name='shuffle')
-    async def _shuffle(self, ctx: commands.Context):
+    @Bot.command(name='shuffle')
+    async def _shuffle(self, ctx: Bot.Context):
         """Shuffles the queue."""
 
         if len(ctx.voice_state.songs) == 0:
@@ -451,8 +450,8 @@ class Music(commands.Cog):
         ctx.voice_state.songs.shuffle()
         await ctx.message.add_reaction('✅')
 
-    @commands.command(name='remove')
-    async def _remove(self, ctx: commands.Context, index: int):
+    @Bot.command(name='remove')
+    async def _remove(self, ctx: Bot.Context, index: int):
         """Removes a song from the queue at a given index."""
 
         if len(ctx.voice_state.songs) == 0:
@@ -461,8 +460,8 @@ class Music(commands.Cog):
         ctx.voice_state.songs.remove(index - 1)
         await ctx.message.add_reaction('✅')
 
-    @commands.command(name='loop')
-    async def _loop(self, ctx: commands.Context):
+    @Bot.command(name='loop')
+    async def _loop(self, ctx: Bot.Context):
         """Loops the currently playing song.
         Invoke this command again to unloop the song.
         """
@@ -474,8 +473,8 @@ class Music(commands.Cog):
         ctx.voice_state.loop = not ctx.voice_state.loop
         await ctx.message.add_reaction('✅')
 
-    @commands.command(name='play')
-    async def _play(self, ctx: commands.Context, *, search: str):
+    @Bot.command(name='play')
+    async def _play(self, ctx: Bot.Context, *, search: str):
         """Plays a song.
         If there are songs in the queue, this will be queued until the
         other songs finished playing.
@@ -488,7 +487,7 @@ class Music(commands.Cog):
 
         async with ctx.typing():
             try:
-                source = await YTDLSource.create_source(ctx, search, loop=self.bot.loop)
+                source = await YTDLSource.create_source(ctx, search, loop=self.Bot.loop)
             except YTDLError as e:
                 await ctx.send('An error occurred while processing this request: {}'.format(str(e)))
             else:
@@ -499,25 +498,25 @@ class Music(commands.Cog):
 
     @_join.before_invoke
     @_play.before_invoke
-    async def ensure_voice_state(self, ctx: commands.Context):
+    async def ensure_voice_state(self, ctx: Bot.Context):
         if not ctx.author.voice or not ctx.author.voice.channel:
-            raise commands.CommandError('You are not connected to any voice channel.')
+            raise Bot.CommandError('You are not connected to any voice channel.')
 
         if ctx.voice_client:
             if ctx.voice_client.channel != ctx.author.voice.channel:
-                raise commands.CommandError('Bot is already in a voice channel.')
+                raise Bot.CommandError('Bot is already in a voice channel.')
 
-@bot.command()
+@Bot.command()
 #this command is designed to pull quotes from a designated channel of memorable user quotes.
 async def quote(ctx):
     #set this number to whatever the channel is you wanna grab messages from
-    quotesChannel = bot.get_channel(12341234)
+    quotesChannel = Bot.get_channel(12341234)
     quotes = await quotesChannel.history(limit=None).flatten()
     myQuote = random.choice(quotes)
     await ctx.send(myQuote.content)
     return(None)
 
-@bot.command()
+@Bot.command()
 async def info(ctx):
     embed = discord.Embed(title=f"{ctx.guild.name}", description="Lorem Ipsum asdasd", timestamp=datetime.datetime.utcnow(), color=discord.Color.blue())
     embed.add_field(name="Server created at", value=f"{ctx.guild.created_at}")
@@ -529,7 +528,7 @@ async def info(ctx):
 
     await ctx.send(embed=embed)
 
-@bot.command()
+@Bot.command()
 async def youtube(ctx, *, search):
     query_string = parse.urlencode({'search_query': search})
     html_content = request.urlopen('http://www.youtube.com/results?' + query_string)
@@ -539,12 +538,12 @@ async def youtube(ctx, *, search):
     # I will put just the first result, you can loop the response to show more results
     await ctx.send('https://www.youtube.com/watch?v=' + search_results[0])
 
-@bot.command()
+@Bot.command()
 async def goodnight(ctx, *args):
     gnMessage = ""
     for arg in args:
       if "@" in ctx.message.content.lower():
-          await ctx.send("This bot doesn't allow for the mentioning of users.")
+          await ctx.send("This Bot doesn't allow for the mentioning of users.")
       else:
         gnMessage = "Goodnight," + gnMessage + " " + arg
         await ctx.send(gnMessage)
@@ -552,15 +551,10 @@ async def goodnight(ctx, *args):
 
 
 # Events
-@bot.event
+@Bot.event
 async def on_ready():
-    await bot.change_presence(activity=discord.Game(name="Bot functioning normally"))
+    await Bot.change_presence(activity=discord.Game(name="Bot functioning normally"))
     print('Bot is now online')
 
-@bot.listen()
-async def on_message(message):
-    if "yoo" in message.content.lower():
-        await message.channel.send('Uber are you gay?')
-        await bot.process_commands(message)
 
-bot.run(token)
+Bot.run(token)
