@@ -1,5 +1,5 @@
 # Discord-Bot
-Simple bot made for Discord. 
+Simple bot made for Discord, able to play music in voice channels, quote users, and other simple commands.
 
 Requirements:
 Python 3.5+
